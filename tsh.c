@@ -205,7 +205,7 @@ void eval(char *cmdline)
 			setpgid(0, 0);	// set the pgid of the child to be the same as the pid
 			if ( execve( argv[0], argv, environ) < 0 )
 			{
-				printf("%s: Command not found.\n", argv[0]);
+				printf("%s: Command not found\n", argv[0]);
 				exit(0);
 			}
 		}
@@ -330,15 +330,35 @@ fg need to :
 	pid_t pid = 0;
 	struct job_t *job;
 
+	if ( argv[1] == NULL )	// no argument
+	{
+		printf("%s command requires PID or %%jobid argument\n", argv[0]);
+		return ;
+	}
+	if ( (! isdigit(argv[1][0])) && (argv[1][0] != '%') )	// not a valid argument
+	{
+		printf("%s: argument must be a PID or %%jobid\n", argv[0]);
+		return ;
+	}
 	if ( argv[1][0] == '%' )
 	{
 		jid = atoi(&argv[1][1]);
 		job = getjobjid(jobs, jid );
+		if ( job == NULL )
+		{
+			printf("%s: No such job\n", argv[1]);
+			return ;
+		}
 		pid = job->pid;
 	}
 	else {
 		pid = atoi(argv[1]);
 		job = getjobpid(jobs, pid );
+		if ( job == NULL )
+		{
+			printf("(%s): No such process\n", argv[1]);
+			return ;
+		}
 		jid = job->jid;
 	}
 
