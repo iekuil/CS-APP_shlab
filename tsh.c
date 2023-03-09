@@ -213,10 +213,8 @@ void eval(char *cmdline)
 		Sigprocmask(SIG_BLOCK, &mask_all, NULL);
 		if ( !bg )	// the child would not comes here because of the execve
 		{
-			//printf("the pid of the fg :%d\n",pid);
 
 			addjob(jobs, pid, FG, cmdline);
-			//Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 			waitfg(pid);
 		}
 		else
@@ -397,7 +395,6 @@ void waitfg(pid_t pid)
 
 	while(!fg_flag)
 	{
-	//	printf("here ");
 		sleep(1);
 	}
 	return ;
@@ -423,25 +420,12 @@ void sigchld_handler(int sig)
 	int chld_sig;
 	int job_state;
 	struct job_t *job;
-	//pid = Waitpid(-1, &status, WNOHANG | WUNTRACED);
-	//printf("the first waitpid=%d,it's bigger than 0?%d\n",pid,pid>0);
-	//printf("the sig is %d\n",sig);
-	//while( (pid = Waitpid(-1, &status, WNOHANG | WUNTRACED)) >= 0)
-	//	printf("the waitpid get = %d\n",pid);
+
+
 	while( (pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0)
 	{
-		//printf("the waitpid get = %d\n",pid);
 		Sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
-		//if ( !WIFSTOPPED(status) )
-		//{
-		//	deletejob(jobs, pid);	
-		//}
-		//else{
-		//	fg_flag = 1;
-		//	struct job_t *fg_job = getjobpid(jobs, pid);
-		//	fg_job->state = ST; 
 				
-		//}
 		job = getjobpid(jobs, pid);
 		job_state = job->state;
 		if ( WIFSTOPPED(status) )	//if child is stopped, show the message, and rewrite the job state
@@ -482,11 +466,10 @@ void sigint_handler(int sig)
 	fg_pid = fgpid(jobs);
 	if ( !fg_pid )
 		return;
-	// deletejob(jobs, fg_pid);
 	struct job_t *fg_job = getjobpid(jobs, fg_pid);
 	if ( fg_job->state != FG )
 		return;
-	kill(-fg_pid, sig);	//send sig to the whole group
+	Kill(-fg_pid, sig);	//send sig to the whole group
 	return;
 }
 
@@ -497,7 +480,6 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-	//printf("here\n");
 	pid_t fg_pid;		// unsafe
 	fg_pid = fgpid(jobs);
 	if ( !fg_pid )
@@ -506,7 +488,7 @@ void sigtstp_handler(int sig)
 	struct job_t *fg_job = getjobpid(jobs, fg_pid);
 	if ( fg_job->state != FG )
 		return;
-	kill(-fg_pid, sig);	//send sig to the whole group
+	Kill(-fg_pid, sig);	//send sig to the whole group
 	return;
 }
 
