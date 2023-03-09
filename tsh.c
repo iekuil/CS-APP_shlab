@@ -68,6 +68,7 @@ void sigint_handler(int sig);
 
 /* my wrappers for systam calls */
 pid_t Fork(void);
+int Kill(pid_t pid, int sig);
 
 int Sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
 int Sigemptyset(sigset_t *set);
@@ -419,6 +420,7 @@ void sigchld_handler(int sig)
 	sigset_t mask_all, prev_all;
 	pid_t pid;
 	int status;
+	int chld_sig;
 	int job_state;
 	struct job_t *job;
 	//pid = Waitpid(-1, &status, WNOHANG | WUNTRACED);
@@ -442,22 +444,26 @@ void sigchld_handler(int sig)
 		//}
 		job = getjobpid(jobs, pid);
 		job_state = job->state;
-		if (job_state == FG)
+		if ( WIFSTOPPED(status) )	//if child is stopped, show the message, and rewrite the job state
 		{
-			if ( WIFSTOPPED(status) )
-			{
-				job->state = ST;
-			}
-			else
-			{
-				deletejob(jobs, pid);
-			}
-			fg_flag = 1;
+			chld_sig = WSTOPSIG(status);
+			job->state = ST;
+			printf("Job [%d] (%d) stopped by signal %d\n",job->jid, job->pid, chld_sig);
 		}
-		else{
+		else if ( WIFSIGNALED(status) )	// if child is terminated, show the message, and delete the job
+		{
+			chld_sig = WTERMSIG(status);
+			printf("Job [%d] (%d) terminated by signal %d\n",job->jid, job->pid, chld_sig);
 			deletejob(jobs, pid);
 		}
-			
+		else	// if child exits or returns, just delete the job
+		{
+			deletejob(jobs, pid);
+		}
+		if ( job_state == FG )	// if the fg process is stopped or terminated, awake the main process
+		{
+			fg_flag = 1;
+		}	
 		Sigprocmask(SIG_SETMASK, &prev_all, NULL);
 	}
 	errno = olderrno;		
@@ -481,8 +487,7 @@ void sigint_handler(int sig)
 	if ( fg_job->state != FG )
 		return;
 	kill(-fg_pid, sig);	//send sig to the whole group
-	printf("Job [%d] (%d) terminated by signal %d\n",fg_job->jid, fg_job->pid, sig);
-    return;
+	return;
 }
 
 /*
@@ -502,7 +507,6 @@ void sigtstp_handler(int sig)
 	if ( fg_job->state != FG )
 		return;
 	kill(-fg_pid, sig);	//send sig to the whole group
-	printf("Job [%d] (%d) stopped by signal %d\n",fg_job->jid, fg_job->pid, sig);
 	return;
 }
 
@@ -737,6 +741,15 @@ pid_t Fork(void)
 	return pid;
 }
 
+int Kill(pid_t pid, int sig)
+{
+	int ret;
+	if ( ( ret = kill(pid, sig) ) < 0)
+	{
+		unix_error("Kill error");
+	}
+	return ret;
+}
 
 
 int Sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
